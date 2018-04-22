@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Climber Timer</title>
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+            }
+
+            *:focus {
+                outline: none;
+            }
+
+            body {
+                background-color: black;
+                overflow-x: hidden;
+                color: white;
+            }
+
+            #input {
+                display: none;
+                position: absolute;
+                margin: 20%;
+                z-index: 1;
+                font-size: 2em;
+                color: white;
+                background-color: black;
+                border: none;
+            }
+
+            #canvas {
+                width: 100vw;
+                height: 100vh;
+                margin-bottom: 10%;
+                background-color: black;
+            }
+
+            h1 {
+                margin-bottom: 5%;
+                text-align: center;
+                font-size: 3.6em;
+                color: white;
+            }
+
+            table {
+                width: 100%;
+                margin-bottom: 30%;
+                text-align: center;
+                border-collapse: collapse;
+            }
+
+            thead {
+                font-size: 3em;
+                width: 100%;
+            }
+
+            #theadBorder {
+                border:none;
+            }
+
+            tbody::before {
+                content: "-";
+                display: block;
+                line-height: 3em;
+                color: transparent;
+            }
+
+            tr:hover {
+                border: 2px solid white;
+            }
+
+            td {
+                font-size: 2em;
+            }
+        </style>
+    </head>
+    <body>
+        <input type="text" id="input" placeholder="Enter Name">
+        <canvas id="canvas"></canvas>
+        <div>
+            <h1>High Scores</h1>
+            <table>
+                <thead>
+                  <tr id="theadBorder">
+                    <th>NAME</th>
+                    <th>TIME</th>
+                  </tr>
+                </thead>
+                <tbody>
+                </tbody>
+            </table>
+        </div>
+        
+        <script>
+            document.addEventListener('DOMContentLoaded',()=>{
+
+                const body = document.querySelector('body');
+                const input = document.getElementById('input');
+                const canvas = document.getElementById('canvas');
+                canvas.width = canvas.scrollWidth;
+                canvas.height = canvas.scrollHeight;
+                const c = canvas.getContext('2d');
+
+                const fps = 1000/15,
+                    radius = 25,
+                    circleCount = 5;
+
+                let gameOn = false,
+                    startPlaying = false,
+                    gameEnd = false,
+                    start = 3,
+                    spacePressCount = 0,
+                    timerSeconds = 0,
+                    timerDeciseconds = 0,
+                    timerX = canvas.width/2,
+                    timerY = canvas.height/2,
+                    secondsId,
+                    decisecondsId;
+                
+                //track mouse position on mousemove
+                var mousePosition,
+                //track state of mousedown and up
+                    isMouseDown;
+
+                const cSnd1 = new Audio('sounds/circle_touch.wav'),
+                    cSnd2 = new Audio('sounds/circle_touch.wav'),
+                    cSnd3 = new Audio('sounds/circle_touch.wav'),
+                    cSnd4 = new Audio('sounds/circle_touch.wav'),
+                    startSnd = new Audio('sounds/game_start.wav'),
+                    endSnd = new Audio('sounds/game_end.wav');
+
+                // HIGH SCORE BOARD
+
+                let tbody = document.querySelector('tbody'),
+                    tableRows = [],
+                    num = 0;
+
+                function createNewTr(){
+
+                    let newTr = document.createElement('tr'),
+                        newTd1 = document.createElement('td'),
+                        newTd2 = document.createElement('td'),
+                        newTd3 = document.createElement('td');
+
+                        newTr.classList.add(num);
+                        newTd3.classList.add(num);
+                        newTd1.innerHTML = input.value;
+                        newTd2.innerHTML = timerSeconds + '.' + timerDeciseconds;
+                        newTd3.innerHTML = 'X';
+                        newTd3.style.fontFamily = 'Arial';
+                        newTd3.style.color = 'red';
+                        newTr.appendChild(newTd1);
+                        newTr.appendChild(newTd2);
+                        newTr.appendChild(newTd3);
+
+                        // add fn to X to loop through tbody rows until class match and delete row
+                        newTd3.onclick = function(evt){
+                            for(let i = 0; i < tbody.rows.length; i++){
+                                if(tbody.rows[i].cells[2].classList[0] === evt.target.classList[0]){
+                                    tbody.deleteRow(i);
+                                }
+                            }
+                        }
+
+                        // check to see if new score is lower than any other
+                        let lowestScore = true;
+                        for(let i = 0; i < tbody.rows.length; i++){
+                            if(newTd2.innerHTML < tbody.rows[i].cells[1].innerHTML){
+                                tbody.insertBefore(newTr, tbody.rows[i]);
+                                lowestScore = false;
+                                break;
+                            }
+                        }
+                        if(lowestScore){
+                            tbody.appendChild(newTr);
+                        }
+                        num++;
+                }
+
+                // add listeners
+                document.addEventListener('mousemove', move, false);
+                document.addEventListener('mousedown', setDraggable, false);
+                document.addEventListener('mouseup', setDraggable, false);
+                // spacebar press to start timer
+                document.addEventListener('keypress', evt => {
+                    if(evt.key === ' '){
+                    evt.preventDefault();
+                    if(!gameOn){
+                        body.style.overflow = 'hidden';
+                        startTimer();
+                    }
+                    if(startPlaying){
+                        if(spacePressCount === 0){
+                            c1.style = 'black';
+                            cSnd1.play();   
+                        } else if(spacePressCount === 1){
+                            c2.style = 'black';
+                            cSnd2.play(); 
+                        } else if(spacePressCount === 2){
+                            c3.style = 'black';
+                            cSnd3.play(); 
+                        } else if(spacePressCount === 3){
+                            c4.style = 'black';
+                            cSnd4.play(); 
+                        } else if(spacePressCount === 4){
+                            c5.style = 'black';
+                        }
+                        if(spacePressCount < circleCount){
+                            spacePressCount++;   
+                        }
+                        if(spacePressCount === circleCount && !gameEnd){  
+                            gameOver();
+                        }
+                    }
+                    }
+                });
+                // change mouse cursor when hovering over a circle
+                document.addEventListener('mousemove', evt => {
+                    getMousePosition(evt);
+                    
+                    if(intersects(c1) || intersects(c2) || intersects(c3) || intersects(c4) || intersects(c5)){
+                        body.style.cursor = 'pointer';
+                    } else {
+                        body.style.cursor = 'auto'; 
+                    } 
+                });
+
+                // arrow controls for timer
+                document.addEventListener('keydown', evt => {
+                    let x = evt.key,
+                        moveDistance = 10;
+
+                    if(x === 'ArrowUp' || x === 'ArrowDown' || x === 'ArrowLeft' || x === 'ArrowRight'){
+                        evt.preventDefault();
+                    }
+                    
+                    if(x === 'ArrowUp' && timerY > 20){
+                        timerY -= moveDistance;
+                    } else if(x === 'ArrowDown' && timerY < canvas.height){
+                        timerY += moveDistance;
+                    } else if(x === 'ArrowLeft' && timerX > 0){
+                        timerX -= moveDistance;
+                    } else if(x === 'ArrowRight' && timerX < canvas.width-100){
+                        timerX += moveDistance;
+                    }
+                });
+
+                function startGame(){
+                    if(!gameOn){
+                        c.font = '20px serif';
+                        c.strokeStyle = 'white';
+                        c.fillText('Press the SPACEBAR to start a new game!', 420, canvas.height - 30);   
+                    }
+                }
+
+                function drawStart(){
+                    c.font = '300px Arial';
+                    c.fillStyle = 'blue';
+                    c.fillText(start, canvas.width/2-100, canvas.height/2+100);
+                }
+
+                function startTimer(){
+                    startSnd.play();
+                    gameOn = true;
+                    start = 3;
+                    drawStart();
+                    let timerId = setInterval(function(){
+                        start--;
+                        if(start){
+                            drawStart();
+                            c.fillText(start, canvas.width/2-100, canvas.height/2+100);
+                        }
+                    },600);
+                        
+                    let clear = setTimeout(function(){
+                        clearInterval(timerId);
+                        startPlaying = true;
+                        // start clock
+                        secondsId = setInterval(()=>{
+                        timerSeconds++;
+                        },1000);
+                        decisecondsId = setInterval(()=>{
+                            if(timerDeciseconds === 9){
+                                timerDeciseconds = 0;
+                            }
+                            timerDeciseconds++;
+                        },100);
+                    },1800);
+                }
+
+                function drawTimer(){
+                    c.font = '200px serif';
+                    c.fillStyle = 'white';
+                    c.fillText(timerSeconds + '.' + timerDeciseconds, timerX, timerY);
+                }
+
+                function gameOver(){
+                    endSnd.play();
+                    gameEnd = true;
+                    startPlaying = false;
+                    clearInterval(secondsId);
+                    clearInterval(decisecondsId);
+                    input.style.display = 'inline-block';
+
+                    if(timerX < canvas.width/2){
+                        input.style.marginLeft = '70%';
+                    } else {
+                        input.style.marginLeft = '10%';
+                    }
+                }
+
+                function gameReset(){
+                    timerSeconds = 0;
+                    timerDeciseconds = 0;
+                    timerSecondsX = 500;
+                    spacePressCount = 0;
+                    c1.style = 'white';
+                    c2.style = 'white';
+                    c3.style = 'white';
+                    c4.style = 'white';
+                    c5.style = 'white';
+                    gameOn = false;
+                    body.style.overflow = 'visible';
+                    body.style.overflowX = 'hidden';
+                    input.style.display = 'none';
+                    input.value = '';
+                }
+
+                // circle starting coordinates
+                let c1X = 100,
+                    c1Y = 200,
+                    c2X = 200,
+                    c2Y = 200,
+                    c3X = 300,
+                    c3Y = 200,
+                    c4X = 400,
+                    c4Y = 200,
+                    c5X = 500,
+                    c5Y = 200;
+
+                // create circles
+                let c1 = new Circle(c1X, c1Y, radius),
+                    c2 = new Circle(c2X, c2Y, radius),
+                    c3 = new Circle(c3X, c3Y, radius),
+                    c4 = new Circle(c4X, c4Y, radius),
+                    c5 = new Circle(c5X, c5Y, radius);
+
+                let circles = [c1, c2, c3,c4,c5];
+
+                function drawCircles(){
+                    c1.draw(1);
+                    c2.draw(2);
+                    c3.draw(3);
+                    c4.draw(4);
+                    c5.draw(5);
+                }
+
+                function drawEverything(){
+                    c.clearRect(0, 0, canvas.width, canvas.height);
+                    drawTimer();
+                    drawCircles();
+                    startGame();
+                    
+                    if(gameEnd){
+                        c.font = '20px serif';
+                        c.fillStyle = 'white';
+                        c.fillText('Press ENTER to reset the game!', 450, canvas.height - 30);
+                        
+                        document.addEventListener('keypress', evt => {
+                            if(evt.key === 'Enter' && gameEnd){
+                                if(input.value){
+                                    createNewTr();
+                                }
+                                gameEnd = false;
+                                gameReset();
+                            }
+                        });
+                    }
+                }
+
+                //key track of circle focus and focused index
+                let focused = {
+                    key: 0,
+                    state: false
+                }
+
+                //circle constructor
+                function Circle(x, y, r){
+                    this.startingAngle = 0;
+                    this.endAngle = 2 * Math.PI;
+                    this.x = x;
+                    this.y = y;
+                    this.r = r;
+                    this.textX = this.x - 12;
+                    this.textY = this.y + 15;
+                    this.style = 'white';
+
+                    this.draw = function (num){
+                        c.beginPath();
+                        c.arc(this.x, this.y, this.r, this.startingAngle, this.endAngle);
+                        c.strokeStyle = this.style;
+                        c.lineWidth = 5;
+                        c.stroke();
+                        c.fillStyle = this.style;
+                        c.font = '50px serif';
+                        c.fillText(num, this.textX, this.textY);
+                    }
+                }
+
+                function move(evt){
+                    if(!isMouseDown){
+                        return;
+                    }
+                    getMousePosition(evt);
+                    //if any circle is focused
+                    if (focused.state) {
+                        circles[focused.key].x = mousePosition.x;
+                        circles[focused.key].textX = mousePosition.x - 12;
+                        circles[focused.key].y = mousePosition.y;
+                        circles[focused.key].textY = mousePosition.y + 15;
+                        return;
+                    }
+                    //no circle currently focused, check if circle is hovered
+                    for (var i = 0; i < circles.length; i++){
+                        if(intersects(circles[i])){
+                            circles.move(i, 0);
+                            focused.state = true;
+                            break;
+                        }
+                    }
+                }
+
+                function setDraggable(evt){
+                    let t = evt.type;
+                    if(t === 'mousedown'){
+                        isMouseDown = true;
+                    } else if(t === 'mouseup'){
+                        isMouseDown = false;
+                        releaseFocus();
+                    }
+                }
+
+                function releaseFocus(){
+                    focused.state = false;
+                }
+
+                function getMousePosition(evt){
+                    var rect = canvas.getBoundingClientRect();
+                    mousePosition = {
+                        x: Math.round(evt.x - rect.left),
+                        y: Math.round(evt.y - rect.top)
+                    }
+                }
+
+                function intersects(circle){
+                    // subtract the x, y coordinates from the mouse position to get coordinates 
+                    // check against the area of the radius
+                    let areaX = mousePosition.x - circle.x;
+                    let areaY = mousePosition.y - circle.y;
+                    //return true if x^2 + y^2 <= radius squared.
+                    return areaX * areaX + areaY * areaY <= radius * radius;
+                }
+
+                Array.prototype.move = function (oldIndex, newIndex){
+                    if (newIndex >= this.length){
+                        for(let i = newIndex - this.length;(i--) + 1;){
+                            this.push(undefined);
+                        }
+                    }
+                    this.splice(newIndex, 0, this.splice(oldIndex, 1)[0]);
+                };
+
+                setInterval(()=>{
+                    drawEverything();
+                },fps);
+
+            });
+        </script>
+    </body>
+</html>
